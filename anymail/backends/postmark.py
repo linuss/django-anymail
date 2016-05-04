@@ -100,7 +100,11 @@ class PostmarkPayload(RequestsPayload):
         super(PostmarkPayload, self).__init__(message, defaults, backend, headers=headers, *args, **kwargs)
 
     def get_api_endpoint(self):
-        return "email"
+        if 'TemplateId' in self.data or 'TemplateModel' in self.data:
+            # This is the one Postmark API documented to have a trailing slash. (Typo?)
+            return "email/withTemplate/"
+        else:
+            return "email"
 
     def get_request_params(self, api_url):
         params = super(PostmarkPayload, self).get_request_params(api_url)
@@ -184,6 +188,14 @@ class PostmarkPayload(RequestsPayload):
 
     def set_track_opens(self, track_opens):
         self.data["TrackOpens"] = track_opens
+
+    def set_template_id(self, template_id):
+        self.data["TemplateId"] = template_id
+
+    # template_data: Postmark doesn't support per-recipient substitutions
+
+    def set_template_global_data(self, template_global_data):
+        self.data["TemplateModel"] = template_global_data
 
     def set_esp_extra(self, extra):
         self.data.update(extra)

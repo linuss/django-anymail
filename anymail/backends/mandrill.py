@@ -147,6 +147,24 @@ class MandrillPayload(RequestsPayload):
     def set_track_opens(self, track_opens):
         self.data["message"]["track_opens"] = track_opens
 
+    def set_template_id(self, template_id):
+        self.data["template_name"] = template_id
+        self.data.setdefault("template_content", [])  # Mandrill requires something here
+
+    def set_template_data(self, template_data):
+        self.data['message']['preserve_recipients'] = False  # if merge, hide recipients from each other
+        self.data['message']['merge_vars'] = [
+            {'rcpt': rcpt, 'vars': [{'name': key, 'content': rcpt_data[key]}
+                                    for key in sorted(rcpt_data.keys())]}  # sort for testing reproducibility
+            for rcpt, rcpt_data in template_data.items()
+        ]
+
+    def set_template_global_data(self, template_global_data):
+        self.data['message']['global_merge_vars'] = [
+            {'name': var, 'content': value}
+            for var, value in template_global_data.items()
+        ]
+
     def set_esp_extra(self, extra):
         pass
 
@@ -170,10 +188,7 @@ class MandrillPayload(RequestsPayload):
         ('subaccount', last, None),
         ('google_analytics_domains', last, None),
         ('google_analytics_campaign', last, None),
-        ('global_merge_vars', combine, _expand_merge_vars),
-        ('merge_vars', combine, None),
         ('recipient_metadata', combine, None),
-        ('template_name', last, None),
         ('template_content', combine, _expand_merge_vars),
     )
 
@@ -183,19 +198,8 @@ class MandrillPayload(RequestsPayload):
     def set_ip_pool(self, ip_pool):
         self.data["ip_pool"] = ip_pool
 
-    def set_template_name(self, template_name):
-        self.data["template_name"] = template_name
-        self.data.setdefault("template_content", [])  # Mandrill requires something here
-
     def set_template_content(self, template_content):
         self.data["template_content"] = template_content
-
-    def set_merge_vars(self, merge_vars):
-        # For testing reproducibility, we sort the recipients
-        self.data['message']['merge_vars'] = [
-            {'rcpt': rcpt, 'vars': _expand_merge_vars(merge_vars[rcpt])}
-            for rcpt in sorted(merge_vars.keys())
-        ]
 
     def set_recipient_metadata(self, recipient_metadata):
         # For testing reproducibility, we sort the recipients

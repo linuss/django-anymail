@@ -142,7 +142,6 @@ class MandrillBackendDjrillFeatureTests(MandrillBackendMockAPITestCase):
     'google_analytics_domains': ['example.com/test'],
     'google_analytics_campaign': ['UA-00000000-1'],
     'merge_language': 'mailchimp',
-    'global_merge_vars': {'TEST': 'djrill'},
     'async': True,
     'ip_pool': 'Pool1',
     'invalid': 'invalid',
@@ -170,9 +169,6 @@ class MandrillBackendDjrillSendDefaultsTests(MandrillBackendMockAPITestCase):
         self.assertEqual(data['message']['google_analytics_domains'], ['example.com/test'])
         self.assertEqual(data['message']['google_analytics_campaign'], ['UA-00000000-1'])
         self.assertEqual(data['message']['merge_language'], 'mailchimp')
-        self.assertEqual(data['message']['global_merge_vars'],
-                         [{'name': 'TEST', 'content': 'djrill'}])
-        self.assertFalse('merge_vars' in data['message'])
         self.assertFalse('recipient_metadata' in data['message'])
         # Options at top level of api params (not in message dict):
         self.assertTrue(data['async'])
@@ -217,27 +213,9 @@ class MandrillBackendDjrillSendDefaultsTests(MandrillBackendMockAPITestCase):
         self.assertEqual(data['message']['google_analytics_domains'], ['override.example.com'])
         self.assertEqual(data['message']['google_analytics_campaign'], ['UA-99999999-1'])
         self.assertEqual(data['message']['merge_language'], 'handlebars')
-        self.assertEqual(data['message']['global_merge_vars'], [{'name': 'TEST', 'content': 'djrill'}])
         # Options at top level of api params (not in message dict):
         self.assertFalse(data['async'])
         self.assertEqual(data['ip_pool'], 'Bulk Pool')
-
-    def test_global_merge(self):
-        # Test that global settings merge in
-        self.message.global_merge_vars = {'GREETING': "Hello"}
-        self.message.send()
-        data = self.get_api_call_json()
-        self.assertEqual(data['message']['global_merge_vars'],
-                         [{'name': "GREETING", 'content': "Hello"},
-                          {'name': 'TEST', 'content': 'djrill'}])
-
-    def test_global_merge_overwrite(self):
-        # Test that global merge settings are overwritten
-        self.message.global_merge_vars = {'TEST': "Hello"}
-        self.message.send()
-        data = self.get_api_call_json()
-        self.assertEqual(data['message']['global_merge_vars'],
-                         [{'name': 'TEST', 'content': 'Hello'}])
 
 
 class MandrillBackendDjrillTemplateTests(MandrillBackendMockAPITestCase):
@@ -245,41 +223,19 @@ class MandrillBackendDjrillTemplateTests(MandrillBackendMockAPITestCase):
 
     # Holdovers from Djrill, until we design Anymail's normalized esp-template support
 
-    def test_merge_data(self):
-        # Anymail expands simple python dicts into the more-verbose name/content
-        # structures the Mandrill API uses
+    def test_merge_language(self):
         self.message.merge_language = "mailchimp"
-        self.message.global_merge_vars = {'GREETING': "Hello",
-                                          'ACCOUNT_TYPE': "Basic"}
-        self.message.merge_vars = {
-            "customer@example.com": {'GREETING': "Dear Customer",
-                                     'ACCOUNT_TYPE': "Premium"},
-            "guest@example.com": {'GREETING': "Dear Guest"},
-        }
         self.message.send()
         data = self.get_api_call_json()
         self.assertEqual(data['message']['merge_language'], "mailchimp")
-        self.assertEqual(data['message']['global_merge_vars'],
-                         [{'name': 'ACCOUNT_TYPE', 'content': "Basic"},
-                          {'name': "GREETING", 'content': "Hello"}])
-        self.assertEqual(data['message']['merge_vars'],
-                         [{'rcpt': "customer@example.com",
-                           'vars': [{'name': 'ACCOUNT_TYPE', 'content': "Premium"},
-                                    {'name': "GREETING", 'content': "Dear Customer"}]},
-                          {'rcpt': "guest@example.com",
-                           'vars': [{'name': "GREETING", 'content': "Dear Guest"}]}
-                          ])
 
-    def test_send_template(self):
-        self.message.template_name = "PERSONALIZED_SPECIALS"
+    def test_template_content(self):
         self.message.template_content = {
             'HEADLINE': "<h1>Specials Just For *|FNAME|*</h1>",
             'OFFER_BLOCK': "<p><em>Half off</em> all fruit</p>"
         }
         self.message.send()
-        self.assert_esp_called("/messages/send-template.json")
         data = self.get_api_call_json()
-        self.assertEqual(data['template_name'], "PERSONALIZED_SPECIALS")
         # Anymail expands simple python dicts into the more-verbose name/content
         # structures the Mandrill API uses
         self.assertEqual(data['template_content'],
@@ -287,47 +243,3 @@ class MandrillBackendDjrillTemplateTests(MandrillBackendMockAPITestCase):
                            'content': "<h1>Specials Just For *|FNAME|*</h1>"},
                           {'name': "OFFER_BLOCK",
                            'content': "<p><em>Half off</em> all fruit</p>"}])
-
-    def test_send_template_without_from_field(self):
-        self.message.template_name = "PERSONALIZED_SPECIALS"
-        self.message.use_template_from = True
-        self.message.send()
-        self.assert_esp_called("/messages/send-template.json")
-        data = self.get_api_call_json()
-        self.assertEqual(data['template_name'], "PERSONALIZED_SPECIALS")
-        self.assertFalse('from_email' in data['message'])
-        self.assertFalse('from_name' in data['message'])
-
-    def test_send_template_without_from_field_api_failure(self):
-        self.set_mock_response(status_code=400)
-        self.message.template_name = "PERSONALIZED_SPECIALS"
-        self.message.use_template_from = True
-        with self.assertRaises(AnymailAPIError):
-            self.message.send()
-
-    def test_send_template_without_subject_field(self):
-        self.message.template_name = "PERSONALIZED_SPECIALS"
-        self.message.use_template_subject = True
-        self.message.send()
-        self.assert_esp_called("/messages/send-template.json")
-        data = self.get_api_call_json()
-        self.assertEqual(data['template_name'], "PERSONALIZED_SPECIALS")
-        self.assertFalse('subject' in data['message'])
-
-    def test_no_template_content(self):
-        # Just a template, without any template_content to be merged
-        self.message.template_name = "WELCOME_MESSAGE"
-        self.message.send()
-        self.assert_esp_called("/messages/send-template.json")
-        data = self.get_api_call_json()
-        self.assertEqual(data['template_name'], "WELCOME_MESSAGE")
-        self.assertEqual(data['template_content'], [])  # Mandrill requires this field
-
-    def test_non_template_send(self):
-        # Make sure the non-template case still uses /messages/send.json
-        self.message.send()
-        self.assert_esp_called("/messages/send.json")
-        data = self.get_api_call_json()
-        self.assertFalse('template_name' in data)
-        self.assertFalse('template_content' in data)
-        self.assertFalse('async' in data)

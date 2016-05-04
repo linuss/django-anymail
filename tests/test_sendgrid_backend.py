@@ -403,6 +403,44 @@ class SendGridBackendAnymailFeatureTests(SendGridBackendMockAPITestCase):
         self.assertEqual(smtpapi['filters']['clicktrack'], {'settings': {'enable': 1}})
         self.assertEqual(smtpapi['filters']['opentrack'], {'settings': {'enable': 0}})
 
+    def test_template_id(self):
+        self.message.template_id = "5997fcf6-2b9f-484d-acd5-7e9a99f0dc1f"
+        self.message.send()
+        smtpapi = self.get_smtpapi()
+        self.assertEqual(smtpapi['filters']['templates'], {
+            'settings': {'enable': 1,
+                         'template_id': "5997fcf6-2b9f-484d-acd5-7e9a99f0dc1f"}
+        })
+
+    def test_template_data(self):
+        self.message.to = ['alice@example.com', 'Bob <bob@example.com>']
+        # SendGrid template_id is not required to use merge.
+        # You can just supply template content as the message (e.g.):
+        self.message.body = "Hi :name. Welcome to :group at :site."
+        self.message.template_data = {
+            'alice@example.com': {':name': "Alice", ':group': "Developers"},
+            'bob@example.com': {':name': "Bob"},  # and leave :group undefined
+        }
+        self.message.template_global_data = {
+            ':group': "Users",
+            ':site': "ExampleCo",
+        }
+        self.message.send()
+
+        data = self.get_api_call_data()
+        smtpapi = self.get_smtpapi()
+        self.assertNotIn('to', data)  # recipients should be moved to smtpapi-to with template_data
+        self.assertNotIn('toname', data)
+        self.assertEqual(smtpapi['to'], ['alice@example.com', 'Bob <bob@example.com>'])
+        self.assertEqual(smtpapi['sub'], {
+            ':name': ["Alice", "Bob"],
+            ':group': ["Developers", ":group"],  # missing value gets replaced with var name...
+        })
+        self.assertEqual(smtpapi['section'], {
+            ':group': "Users",  # ... which SG should then try to resolve from here
+            ':site': "ExampleCo",
+        })
+
     @override_settings(ANYMAIL_SENDGRID_GENERATE_MESSAGE_ID=False)  # else we force unique_args
     def test_default_omits_options(self):
         """Make sure by default we don't send any ESP-specific options.

@@ -2,7 +2,6 @@
 
 from __future__ import unicode_literals
 
-import unittest
 from datetime import date, datetime
 from decimal import Decimal
 from email.mime.base import MIMEBase
@@ -339,6 +338,68 @@ class MandrillBackendAnymailFeatureTests(MandrillBackendMockAPITestCase):
         data = self.get_api_call_json()
         self.assertEqual(data['message']['track_opens'], False)
         self.assertEqual(data['message']['track_clicks'], True)
+
+    def test_template_id(self):
+        self.message.template_id = "welcome_template"
+        self.message.send()
+        data = self.get_api_call_json()
+        self.assert_esp_called("/messages/send-template.json")  # template requires different send API
+        self.assertEqual(data['template_name'], "welcome_template")
+        self.assertEqual(data['template_content'], [])  # Mandrill requires this field with send-template
+
+    def test_template_data(self):
+        self.message.to = ['alice@example.com', 'Bob <bob@example.com>']
+        # Mandrill template_id is not required to use merge.
+        # You can just supply template content as the message (e.g.):
+        self.message.body = "Hi *|name|*. Welcome to *|group|* at *|site|*."
+        self.message.template_data = {
+            'alice@example.com': {'name': "Alice", 'group': "Developers"},
+            'bob@example.com': {'name': "Bob"},  # and leave :group undefined
+        }
+        self.message.template_global_data = {
+            'group': "Users",
+            'site': "ExampleCo",
+        }
+        self.message.send()
+        self.assert_esp_called("/messages/send.json")  # didn't specify template_id, so use normal send
+        data = self.get_api_call_json()
+        self.assertCountEqual(data['message']['merge_vars'], [
+            {'rcpt': "alice@example.com", 'vars': [
+                {'name': "group", 'content': "Developers"},
+                {'name': "name", 'content': "Alice"}
+            ]},
+            {'rcpt': "bob@example.com", 'vars': [
+                {'name': "name", 'content': "Bob"}
+            ]},
+        ])
+        self.assertCountEqual(data['message']['global_merge_vars'], [
+            {'name': "group", 'content': "Users"},
+            {'name': "site", 'content': "ExampleCo"},
+        ])
+        self.assertEqual(data['message']['preserve_recipients'], False)  # we force with template_data
+
+    def test_missing_from(self):
+        """Make sure a missing from_email omits from* from API call.
+
+        (Allows use of from email/name from template)
+        """
+        # You must set from_email=None after constructing the EmailMessage
+        # (or you will end up with Django's settings.DEFAULT_FROM_EMAIL instead)
+        self.message.from_email = None
+        self.message.send()
+        data = self.get_api_call_json()
+        self.assertNotIn('from_email', data['message'])
+        self.assertNotIn('from_name', data['message'])
+
+    def test_missing_subject(self):
+        """Make sure a missing subject omits subject from API call.
+
+        (Allows use of template subject)
+        """
+        self.message.subject = None
+        self.message.send()
+        data = self.get_api_call_json()
+        self.assertNotIn('subject', data['message'])
 
     def test_default_omits_options(self):
         """Make sure by default we don't send any ESP-specific options.

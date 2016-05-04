@@ -56,6 +56,12 @@ class MailgunPayload(RequestsPayload):
         auth = ("api", backend.api_key)
         self.sender_domain = None
         self.all_recipients = []  # used for backend.parse_recipient_status
+
+        # late-binding of recipient-variables:
+        self.template_data = None
+        self.template_global_data = None
+        self.to_emails = []
+
         super(MailgunPayload, self).__init__(message, defaults, backend, auth=auth, *args, **kwargs)
 
     def get_api_endpoint(self):
@@ -65,6 +71,34 @@ class MailgunPayload(RequestsPayload):
                                "or set `message.esp_extra={'sender_domain': 'example.com'}`",
                                backend=self.backend, email_message=self.message, payload=self)
         return "%s/messages" % self.sender_domain
+
+    def serialize_data(self):
+        self.populate_recipient_variables()
+        return self.data
+
+    def populate_recipient_variables(self):
+        """Populate Mailgun recipient-variables header from template data"""
+        template_data = self.template_data
+
+        if self.template_global_data is not None:
+            # Mailgun doesn't support global variables.
+            # We emulate them by populating recipient-variables for all recipients.
+            try:
+                template_data = template_data.copy()  # don't modify the original, which doesn't belong to us
+            except TypeError:
+                template_data = {}
+            for email in self.to_emails:
+                try:
+                    recipient_data = template_data[email]
+                except KeyError:
+                    template_data[email] = self.template_global_data
+                else:
+                    # Merge globals (recipient_data wins in conflict)
+                    template_data[email] = self.template_global_data.copy()
+                    template_data[email].update(recipient_data)
+
+        if template_data is not None:
+            self.data['recipient-variables'] = self.serialize_json(template_data)
 
     #
     # Payload construction
@@ -87,8 +121,10 @@ class MailgunPayload(RequestsPayload):
     def set_recipients(self, recipient_type, emails):
         assert recipient_type in ["to", "cc", "bcc"]
         if emails:
-            self.data[recipient_type] = [str(email) for email in emails]
+            self.data[recipient_type] = [email.address for email in emails]
             self.all_recipients += emails  # used for backend.parse_recipient_status
+        if recipient_type == 'to':
+            self.to_emails = [email.email for email in emails]  # used for populate_recipient_variables
 
     def set_subject(self, subject):
         self.data["subject"] = subject
@@ -144,6 +180,17 @@ class MailgunPayload(RequestsPayload):
 
     def set_track_opens(self, track_opens):
         self.data["o:tracking-opens"] = "yes" if track_opens else "no"
+
+    # template_id: Mailgun doesn't offer stored templates.
+    # (The message body and other fields *are* the template content.)
+
+    def set_template_data(self, template_data):
+        # Processed at serialization time (to allow merging global data)
+        self.template_data = template_data
+
+    def set_template_global_data(self, template_global_data):
+        # Processed at serialization time (to allow merging global data)
+        self.template_global_data = template_global_data
 
     def set_esp_extra(self, extra):
         self.data.update(extra)

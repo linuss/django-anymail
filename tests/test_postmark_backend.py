@@ -332,6 +332,34 @@ class PostmarkBackendAnymailFeatureTests(PostmarkBackendMockAPITestCase):
         with self.assertRaisesMessage(AnymailUnsupportedFeature, 'track_clicks'):
             self.message.send()
 
+    def test_template(self):
+        self.message.template_id = 1234567
+        # Postmark doesn't support per-recipient template_data
+        self.message.template_global_data = {'name': "Alice", 'group': "Developers"}
+        self.message.send()
+        self.assert_esp_called('/email/withTemplate/')
+        data = self.get_api_call_json()
+        self.assertEqual(data['TemplateId'], 1234567)
+        self.assertEqual(data['TemplateModel'], {'name': "Alice", 'group': "Developers"})
+
+    def test_template_data(self):
+        self.message.template_data = {
+            'alice@example.com': {'name': "Alice", 'group': "Developers"},
+        }
+        with self.assertRaisesMessage(AnymailUnsupportedFeature, 'template_data'):
+            self.message.send()
+
+    def test_missing_subject(self):
+        """Make sure a missing subject omits Subject from API call.
+
+        (Allows use of template subject)
+        """
+        self.message.template_id = 1234567
+        self.message.subject = None
+        self.message.send()
+        data = self.get_api_call_json()
+        self.assertNotIn('Subject', data)
+
     def test_default_omits_options(self):
         """Make sure by default we don't send any ESP-specific options.
 
@@ -342,6 +370,8 @@ class PostmarkBackendAnymailFeatureTests(PostmarkBackendMockAPITestCase):
         self.message.send()
         data = self.get_api_call_json()
         self.assertNotIn('Tag', data)
+        self.assertNotIn('TemplateId', data)
+        self.assertNotIn('TemplateModel', data)
         self.assertNotIn('TrackOpens', data)
 
     def test_esp_extra(self):
