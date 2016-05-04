@@ -1,6 +1,6 @@
-.. _anymail-send-features:
-
 .. module:: anymail.message
+
+.. _anymail-send-features:
 
 Anymail additions
 =================
