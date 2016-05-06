@@ -15,7 +15,7 @@ from django.test import SimpleTestCase
 from django.test.utils import override_settings
 from django.utils.timezone import get_fixed_timezone, override as override_current_timezone
 
-from anymail.exceptions import AnymailAPIError, AnymailSerializationError, AnymailUnsupportedFeature
+from anymail.exceptions import AnymailAPIError, AnymailSerializationError, AnymailUnsupportedFeature, AnymailWarning
 from anymail.message import attach_inline_image_file
 
 from .mock_requests_backend import RequestsBackendMockAPITestCase, SessionSharingTestCasesMixin
@@ -418,6 +418,8 @@ class SendGridBackendAnymailFeatureTests(SendGridBackendMockAPITestCase):
         # You can just supply template content as the message (e.g.):
         self.message.body = "Hi :name. Welcome to :group at :site."
         self.message.template_data = {
+            # You must either include variable delimiters in the keys (':name' rather than just 'name'),
+            # or use one of the template_var_format options shown in the following test cases:
             'alice@example.com': {':name': "Alice", ':group': "Developers"},
             'bob@example.com': {':name': "Bob"},  # and leave :group undefined
         }
@@ -440,6 +442,51 @@ class SendGridBackendAnymailFeatureTests(SendGridBackendMockAPITestCase):
             ':group': "Users",  # ... which SG should then try to resolve from here
             ':site': "ExampleCo",
         })
+
+    @override_settings(ANYMAIL_SENDGRID_TEMPLATE_VAR_FORMAT=":{}")  # :var as shown in SG examples
+    def test_template_var_format_setting(self):
+        # Provide template var delimiters in settings.py
+        self.message.to = ['alice@example.com', 'Bob <bob@example.com>']
+        self.message.template_data = {
+            'alice@example.com': {'name': "Alice", 'group': "Developers"},
+            'bob@example.com': {'name': "Bob"},  # and leave group undefined
+        }
+        self.message.template_global_data = {'site': "ExampleCo"}
+        self.message.send()
+        smtpapi = self.get_smtpapi()
+        self.assertEqual(smtpapi['sub'], {
+            ':name': ["Alice", "Bob"],
+            ':group': ["Developers", ":group"]  # substitutes formatted var if missing for recipient
+        })
+        self.assertEqual(smtpapi['section'], {':site': "ExampleCo"})
+
+    def test_template_var_format_esp_extra(self):
+        # Provide template var delimiters for an individual message
+        self.message.to = ['alice@example.com', 'Bob <bob@example.com>']
+        self.message.template_data = {
+            'alice@example.com': {'name': "Alice", 'group': "Developers"},
+            'bob@example.com': {'name': "Bob"},  # and leave group undefined
+        }
+        self.message.template_global_data = {'site': "ExampleCo"}
+        self.message.esp_extra = {'template_var_format': '*|{}|*'}  # match Mandrill/MailChimp delimiters
+        self.message.send()
+        smtpapi = self.get_smtpapi()
+        self.assertEqual(smtpapi['sub'], {
+            '*|name|*': ["Alice", "Bob"],
+            '*|group|*': ["Developers", '*|group|*']  # substitutes formatted var if missing for recipient
+        })
+        self.assertEqual(smtpapi['section'], {'*|site|*': "ExampleCo"})
+        # Make sure our esp_extra template_var_format doesn't get sent to SendGrid API:
+        data = self.get_api_call_data()
+        self.assertNotIn('template_var_format', data)
+
+    def test_warn_if_no_template_var_delimiters(self):
+        self.message.to = ['alice@example.com']
+        self.message.template_data = {
+            'alice@example.com': {'name': "Alice", 'group': "Developers"},
+        }
+        with self.assertWarnsRegex(AnymailWarning, r'SENDGRID_TEMPLATE_VAR_FORMAT'):
+            self.message.send()
 
     @override_settings(ANYMAIL_SENDGRID_GENERATE_MESSAGE_ID=False)  # else we force unique_args
     def test_default_omits_options(self):
