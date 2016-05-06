@@ -355,6 +355,18 @@ class MailgunBackendAnymailFeatureTests(MailgunBackendMockAPITestCase):
         })
         self.assertEqual(self.message.template_global_data, {'group': "Users", 'site': "ExampleCo"})
 
+    def test_only_template_global_data(self):
+        # Make sure template_global_data distributed to recipient-variables
+        # even when template_data not set
+        self.message.to = ['alice@example.com', 'Bob <bob@example.com>']
+        self.message.template_global_data = {'test': "value"}
+        self.message.send()
+        data = self.get_api_call_data()
+        self.assertJSONEqual(data['recipient-variables'], {
+            'alice@example.com': {'test': "value"},
+            'bob@example.com': {'test': "value"},
+        })
+
     def test_sender_domain(self):
         """Mailgun send domain can come from from_email or esp_extra"""
         # You could also use ANYMAIL_SEND_DEFAULTS={'esp_extra': {'sender_domain': 'your-domain.com'}}

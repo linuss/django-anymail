@@ -83,9 +83,9 @@ class MailgunPayload(RequestsPayload):
         if self.template_global_data is not None:
             # Mailgun doesn't support global variables.
             # We emulate them by populating recipient-variables for all recipients.
-            try:
+            if template_data is not None:
                 template_data = template_data.copy()  # don't modify the original, which doesn't belong to us
-            except TypeError:
+            else:
                 template_data = {}
             for email in self.to_emails:
                 try:
