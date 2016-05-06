@@ -117,8 +117,8 @@ attribute is not supported with the Mailgun backend.
 Mailgun *does* support :ref:`batch sending <batch-send>` with per-recipient
 merge data. You can refer to Mailgun "recipient variables" in your
 message subject and body, and supply the values with Anymail's
-normalized :attr:`~anymail.message.AnymailMessage.template_data`
-and :attr:`~anymail.message.AnymailMessage.template_global_data`
+normalized :attr:`~anymail.message.AnymailMessage.merge_data`
+and :attr:`~anymail.message.AnymailMessage.merge_global_data`
 message attributes:
 
   .. code-block:: python
@@ -132,13 +132,17 @@ message attributes:
           to=["alice@example.com", "Bob <bob@example.com>"]
       )
       # (you'd probably also set a similar html body with %recipient.___% variables)
-      message.template_data = {
+      message.merge_data = {
           'alice@example.com': {'name': "Alice", 'order_no': "12345"},
           'bob@example.com': {'name': "Bob", 'order_no': "54321"},
       }
-      message.template_global_data = {
+      message.merge_global_data = {
           'ship_date': "May 15"  # Anymail maps globals to all recipients
       }
+
+Mailgun does not natively support global merge data. Anymail emulates
+the capability by copying any `merge_global_data` values to each
+recipient's section in Mailgun's "recipient-variables" API parameter.
 
 See the `Mailgun batch sending`_ docs for more information.
 

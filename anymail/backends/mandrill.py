@@ -151,18 +151,18 @@ class MandrillPayload(RequestsPayload):
         self.data["template_name"] = template_id
         self.data.setdefault("template_content", [])  # Mandrill requires something here
 
-    def set_template_data(self, template_data):
+    def set_merge_data(self, merge_data):
         self.data['message']['preserve_recipients'] = False  # if merge, hide recipients from each other
         self.data['message']['merge_vars'] = [
             {'rcpt': rcpt, 'vars': [{'name': key, 'content': rcpt_data[key]}
                                     for key in sorted(rcpt_data.keys())]}  # sort for testing reproducibility
-            for rcpt, rcpt_data in template_data.items()
+            for rcpt, rcpt_data in merge_data.items()
         ]
 
-    def set_template_global_data(self, template_global_data):
+    def set_merge_global_data(self, merge_global_data):
         self.data['message']['global_merge_vars'] = [
             {'name': var, 'content': value}
-            for var, value in template_global_data.items()
+            for var, value in merge_global_data.items()
         ]
 
     def set_esp_extra(self, extra):

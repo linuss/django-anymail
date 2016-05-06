@@ -33,8 +33,8 @@ class SendGridBackend(AnymailRequestsBackend):
 
         self.generate_message_id = get_anymail_setting('generate_message_id', esp_name=esp_name,
                                                        kwargs=kwargs, default=True)
-        self.template_var_format = get_anymail_setting('template_var_format', esp_name=esp_name,
-                                                       kwargs=kwargs, default=None)
+        self.merge_field_format = get_anymail_setting('merge_field_format', esp_name=esp_name,
+                                                      kwargs=kwargs, default=None)
 
         # This is SendGrid's Web API v2 (because the Web API v3 doesn't support sending)
         api_url = get_anymail_setting('api_url', esp_name=esp_name, kwargs=kwargs,
@@ -70,9 +70,9 @@ class SendGridPayload(RequestsPayload):
         self.message_id = None  # Message-ID -- assigned in serialize_data unless provided in headers
         self.smtpapi = {}  # SendGrid x-smtpapi field
         self.to_list = []  # late-bound 'to' field
-        self.template_var_format = backend.template_var_format
-        self.template_data = None  # late-bound per-recipient vars
-        self.template_global_data = None
+        self.merge_field_format = backend.merge_field_format
+        self.merge_data = None  # late-bound per-recipient data
+        self.merge_global_data = None
 
         http_headers = kwargs.pop('headers', {})
         query_params = kwargs.pop('params', {})
@@ -94,8 +94,8 @@ class SendGridPayload(RequestsPayload):
         if self.generate_message_id:
             self.ensure_message_id()
 
-        self.build_template_data()
-        if self.template_data is None:
+        self.build_merge_data()
+        if self.merge_data is None:
             # Standard 'to' and 'toname' headers
             self.set_recipients('to', self.to_list)
         else:
@@ -149,39 +149,39 @@ class SendGridPayload(RequestsPayload):
             domain = None
         return make_msgid(domain=domain)
 
-    def build_template_data(self):
-        """Set smtpapi['sub'] and ['section'] from template_data and to-list"""
-        if self.template_data is not None:
-            # Convert from {to1: {a: A1, b: B1}, to2: {a: A2}}  (template_data format)
-            # to {a: [A1, A2], b: [B1, ""]}  ({var: [values in to-list order], ...})
-            all_vars = set()
-            for recipient_vars in self.template_data.values():
-                all_vars = all_vars.union(recipient_vars.keys())
+    def build_merge_data(self):
+        """Set smtpapi['sub'] and ['section']"""
+        if self.merge_data is not None:
+            # Convert from {to1: {a: A1, b: B1}, to2: {a: A2}}  (merge_data format)
+            # to {a: [A1, A2], b: [B1, ""]}  ({field: [data in to-list order], ...})
+            all_fields = set()
+            for recipient_data in self.merge_data.values():
+                all_fields = all_fields.union(recipient_data.keys())
             recipients = [email.email for email in self.to_list]
 
-            if self.template_var_format is None and all(var.isalnum() for var in all_vars):
+            if self.merge_field_format is None and all(field.isalnum() for field in all_fields):
                 warnings.warn(
-                    "Your SendGrid merge variables don't seem to have delimiters, "
-                    "which can cause unexpected results with Anymail's template_data. "
-                    "Search SENDGRID_TEMPLATE_VAR_FORMAT in the Anymail docs for more info.",
+                    "Your SendGrid merge fields don't seem to have delimiters, "
+                    "which can cause unexpected results with Anymail's merge_data. "
+                    "Search SENDGRID_MERGE_FIELD_FORMAT in the Anymail docs for more info.",
                     AnymailWarning)
 
-            sub_var_fmt = self.template_var_format or '{}'
-            sub_vars = {var: sub_var_fmt.format(var) for var in all_vars}
+            sub_field_fmt = self.merge_field_format or '{}'
+            sub_fields = {field: sub_field_fmt.format(field) for field in all_fields}
 
             self.smtpapi['sub'] = {
-                # If var is missing for recipient, use (formatted) var as the substitution.
+                # If field data is missing for recipient, use (formatted) field as the substitution.
                 # (This allows default to resolve from global "section" substitutions.)
-                sub_vars[var]: [self.template_data.get(recipient, {}).get(var, sub_vars[var])
-                                for recipient in recipients]
-                for var in all_vars
+                sub_fields[field]: [self.merge_data.get(recipient, {}).get(field, sub_fields[field])
+                                    for recipient in recipients]
+                for field in all_fields
             }
 
-        if self.template_global_data is not None:
-            section_var_fmt = self.template_var_format or '{}'
+        if self.merge_global_data is not None:
+            section_field_fmt = self.merge_field_format or '{}'
             self.smtpapi['section'] = {
-                section_var_fmt.format(var): value
-                for var, value in self.template_global_data.items()
+                section_field_fmt.format(field): data
+                for field, data in self.merge_global_data.items()
             }
 
     #
@@ -200,7 +200,7 @@ class SendGridPayload(RequestsPayload):
 
     def set_to(self, emails):
         # late-bind in self.serialize_data, because whether it goes in smtpapi
-        # depends on whether there is template_data
+        # depends on whether there is merge_data
         self.to_list = emails
 
     def set_recipients(self, recipient_type, emails):
@@ -290,16 +290,14 @@ class SendGridPayload(RequestsPayload):
         self.add_filter('templates', 'enable', 1)
         self.add_filter('templates', 'template_id', template_id)
 
-    def set_template_data(self, template_data):
-        # Must late-bind smtpapi['sub'] (in serialize_data) after we know the recipients
-        # (Also, doesn't require the 'templates' filter; SendGrid will merge into message body.)
-        self.template_data = template_data
+    def set_merge_data(self, merge_data):
+        # Becomes smtpapi['sub'] in build_merge_data, after we know recipients and merge_field_format.
+        self.merge_data = merge_data
 
-    def set_template_global_data(self, template_global_data):
-        # (Doesn't require the 'templates' filter; SendGrid will merge into message body.)
-        self.template_global_data = template_global_data
+    def set_merge_global_data(self, merge_global_data):
+        # Becomes smtpapi['section'] in build_merge_data, after we know merge_field_format.
+        self.merge_global_data = merge_global_data
 
     def set_esp_extra(self, extra):
-        self.template_var_format = extra.pop('template_var_format',
-                                             self.template_var_format)
+        self.merge_field_format = extra.pop('merge_field_format', self.merge_field_format)
         self.data.update(extra)

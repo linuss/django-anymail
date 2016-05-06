@@ -198,8 +198,8 @@ class BasePayload(object):
         ('track_clicks', last, None),
         ('track_opens', last, None),
         ('template_id', last, None),
-        ('template_data', combine, None),
-        ('template_global_data', combine, None),
+        ('merge_data', combine, None),
+        ('merge_global_data', combine, None),
         ('esp_extra', combine, None),
     )
     esp_message_attrs = ()  # subclasses can override
@@ -362,11 +362,11 @@ class BasePayload(object):
     def set_template_id(self, template_id):
         self.unsupported_feature("template_id")
 
-    def set_template_data(self, template_data):
-        self.unsupported_feature("template_data")
+    def set_merge_data(self, merge_data):
+        self.unsupported_feature("merge_data")
 
-    def set_template_global_data(self, template_global_data):
-        self.unsupported_feature("template_global_data")
+    def set_merge_global_data(self, merge_global_data):
+        self.unsupported_feature("merge_global_data")
 
     # ESP-specific payload construction
     def set_esp_extra(self, extra):

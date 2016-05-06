@@ -27,14 +27,14 @@ Example that builds an email from the templates ``message_subject.txt``,
     from django.template import Context
     from django.template.loader import render_to_string
 
-    template_data = {
+    merge_data = {
         'ORDERNO': "12345", 'TRACKINGNO': "1Z987"
     }
 
     plaintext_context = Context(autoescape=False)  # HTML escaping not appropriate in plaintext
-    subject = render_to_string("message_subject.txt", template_data, plaintext_context)
-    text_body = render_to_string("message_body.txt", template_data, plaintext_context)
-    html_body = render_to_string("message_body.html", template_data)
+    subject = render_to_string("message_subject.txt", merge_data, plaintext_context)
+    text_body = render_to_string("message_body.txt", merge_data, plaintext_context)
+    html_body = render_to_string("message_body.html", merge_data)
 
     msg = EmailMultiAlternatives(subject=subject, from_email="store@example.com",
                                  to=["customer@example.com"], body=text_body)

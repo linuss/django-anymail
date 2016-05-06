@@ -347,16 +347,16 @@ class MandrillBackendAnymailFeatureTests(MandrillBackendMockAPITestCase):
         self.assertEqual(data['template_name'], "welcome_template")
         self.assertEqual(data['template_content'], [])  # Mandrill requires this field with send-template
 
-    def test_template_data(self):
+    def test_merge_data(self):
         self.message.to = ['alice@example.com', 'Bob <bob@example.com>']
         # Mandrill template_id is not required to use merge.
         # You can just supply template content as the message (e.g.):
         self.message.body = "Hi *|name|*. Welcome to *|group|* at *|site|*."
-        self.message.template_data = {
+        self.message.merge_data = {
             'alice@example.com': {'name': "Alice", 'group': "Developers"},
             'bob@example.com': {'name': "Bob"},  # and leave :group undefined
         }
-        self.message.template_global_data = {
+        self.message.merge_global_data = {
             'group': "Users",
             'site': "ExampleCo",
         }
@@ -376,7 +376,7 @@ class MandrillBackendAnymailFeatureTests(MandrillBackendMockAPITestCase):
             {'name': "group", 'content': "Users"},
             {'name': "site", 'content': "ExampleCo"},
         ])
-        self.assertEqual(data['message']['preserve_recipients'], False)  # we force with template_data
+        self.assertEqual(data['message']['preserve_recipients'], False)  # we force with merge_data
 
     def test_missing_from(self):
         """Make sure a missing from_email omits from* from API call.

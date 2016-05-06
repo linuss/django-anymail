@@ -115,7 +115,7 @@ see :ref:`unsupported-features`.
   Postmark does not support :attr:`~anymail.message.AnymailMessage.send_at`.
 
 
-.. _poastmark-templates:
+.. _postmark-templates:
 
 Batch sending/merge and ESP templates
 -------------------------------------
@@ -123,13 +123,13 @@ Batch sending/merge and ESP templates
 Postmark supports :ref:`ESP stored templates <esp-stored-templates>`
 populated with global merge data for all recipients, but does not
 offer :ref:`batch sending <batch-send>` with per-recipient merge data.
-Anymail's :attr:`~anymail.message.AnymailMessage.template_data`
+Anymail's :attr:`~anymail.message.AnymailMessage.merge_data`
 message attribute is not supported with the Postmark backend.
 
 To use a Postmark template, set the message's
 :attr:`~anymail.message.AnymailMessage.template_id` to the numeric
 Postmark "TemplateID" and supply the "TemplateModel" using
-the :attr:`~anymail.message.AnymailMessage.template_global_data`
+the :attr:`~anymail.message.AnymailMessage.merge_global_data`
 message attribute:
 
   .. code-block:: python
@@ -142,7 +142,7 @@ message attribute:
           # (and would all see each other's emails in the "to" header)
       )
       message.template_id = 80801  # use this Postmark template
-      message.template_global_data = {
+      message.merge_global_data = {
           'name': "Alice",
           'order_no': "12345",
           'ship_date': "May 15",

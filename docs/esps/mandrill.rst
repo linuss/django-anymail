@@ -111,20 +111,19 @@ and :ref:`batch sending <batch-send>` with per-recipient merge data.
 
 You can use a Mandrill stored template by setting a message's
 :attr:`~anymail.message.AnymailMessage.template_id` to the
-template's name.
-
-Alternatively, you can use MailChimp or Handlebars syntax to
-refer to merge fields directly in your message's subject and body.
+template's name. Alternatively, you can refer to merge fields
+directly in an EmailMessage's subject and body---the message itself
+is used as an on-the-fly template.
 
 In either case, supply the merge data values with Anymail's
-normalized :attr:`~anymail.message.AnymailMessage.template_data`
-and :attr:`~anymail.message.AnymailMessage.template_global_data`
+normalized :attr:`~anymail.message.AnymailMessage.merge_data`
+and :attr:`~anymail.message.AnymailMessage.merge_global_data`
 message attributes.
 
   .. code-block:: python
 
       # This example defines the template inline, using Mandrill's
-      # default MailChimp merge *|variable|* syntax.
+      # default MailChimp merge *|field|* syntax.
       # You could use a stored template, instead, with:
       #   message.template_id = "template name"
       message = EmailMessage(
@@ -135,16 +134,16 @@ message attributes.
                   on *|ship_date|*.""",
           to=["alice@example.com", "Bob <bob@example.com>"]
       )
-      # (you'd probably also set a similar html body with merge variables)
-      message.template_data = {
+      # (you'd probably also set a similar html body with merge fields)
+      message.merge_data = {
           'alice@example.com': {'name': "Alice", 'order_no': "12345"},
           'bob@example.com': {'name': "Bob", 'order_no': "54321"},
       }
-      message.template_global_data = {
+      message.merge_global_data = {
           'ship_date': "May 15",
       }
 
-When you supply per-recipient :attr:`~anymail.message.AnymailMessage.template_data`,
+When you supply per-recipient :attr:`~anymail.message.AnymailMessage.merge_data`,
 Anymail automatically forces Mandrill's `preserve_recipients` option to false,
 so that each person in the message's "to" list sees only their own email address.
 
@@ -283,8 +282,8 @@ Changes to EmailMessage attributes
   Anymail renames this to :attr:`~anymail.message.AnymailMessage.template_id`.
 
 ``message.merge_vars`` and ``message.global_merge_vars``
-  Anymail renames these to :attr:`~anymail.message.AnymailMessage.template_data`
-  and :attr:`~anymail.message.AnymailMessage.template_global_data`, respectively.
+  Anymail renames these to :attr:`~anymail.message.AnymailMessage.merge_data`
+  and :attr:`~anymail.message.AnymailMessage.merge_global_data`, respectively.
 
 ``message.use_template_from`` and ``message.use_template_subject``
   With Anymail, set ``message.from_email = None`` or ``message.subject = None``

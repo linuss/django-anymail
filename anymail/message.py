@@ -26,8 +26,8 @@ class AnymailMessageMixin(object):
         self.track_clicks = kwargs.pop('track_clicks', UNSET)
         self.track_opens = kwargs.pop('track_opens', UNSET)
         self.template_id = kwargs.pop('template_id', UNSET)
-        self.template_data = kwargs.pop('template_data', UNSET)
-        self.template_global_data = kwargs.pop('template_global_data', UNSET)
+        self.merge_data = kwargs.pop('merge_data', UNSET)
+        self.merge_global_data = kwargs.pop('merge_global_data', UNSET)
         self.anymail_status = None
 
         # noinspection PyArgumentList

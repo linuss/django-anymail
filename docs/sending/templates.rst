@@ -6,9 +6,11 @@ Batch sending/merge and ESP templates
 =====================================
 
 If your ESP offers templates and batch-sending/merge capabilities,
-Anymail can simplify using them in a portable way.
+Anymail can simplify using them in a portable way. Anymail doesn't
+translate template syntax between ESPs, but it does normalize using
+templates and providing merge data for batch sends.
 
-Here's an example using both ESP stored templates and merge data:
+Here's an example using both an ESP stored template and merge data:
 
 .. code-block:: python
 
@@ -19,23 +21,24 @@ Here's an example using both ESP stored templates and merge data:
         from_email="marketing@example.com",
         to=["Wile E. <wile@example.com>", "rr@example.com"])
     message.template_id = "after_sale_followup_offer"  # use this ESP stored template
-    message.template_data = {  # per-recipient data to merge into the template
+    message.merge_data = {  # per-recipient data to merge into the template
         'wile@example.com': {'NAME': "Wile E.",
                              'OFFER': "15% off anvils"},
         'rr@example.com':   {'NAME': "Mr. Runner"},
     }
-    message.template_global_data = {  # merge data for all recipients
+    message.merge_global_data = {  # merge data for all recipients
         'PARTNER': "Acme, Inc.",
         'OFFER': "5% off any Acme product",  # a default if OFFER missing for recipient
     }
     message.send()
 
-Setting :attr:`~AnymailMessage.template_id` uses a template stored
-at your ESP to provide the message body and subject. (Assuming the
+The message's :attr:`~AnymailMessage.template_id` identifies a template stored
+at your ESP which provides the message body and subject. (Assuming the
 ESP supports those features.)
 
-Setting :attr:`~AnymailMessage.template_data` lets Anymail
-know it should use the ESP's :ref:`batch sending <batch-send>`
+The message's :attr:`~AnymailMessage.merge_data` supplies the per-recipient
+data to substitute for merge fields in your template. Setting this attribute
+also lets Anymail know it should use the ESP's :ref:`batch sending <batch-send>`
 feature to deliver separate, individually-customized messages
 to each address on the "to" list. (Again, assuming your ESP
 supports that.)
@@ -43,13 +46,13 @@ supports that.)
 .. note::
 
     Templates and batch sending capabilities can vary widely
-    between ESPs, as can the syntax for merge variables. Be sure
+    between ESPs, as can the syntax for merge fields. Be sure
     to read the notes for :ref:`your specific ESP <supported-esps>`,
     and test carefully with a small recipient list before
     launching a gigantic batch send.
 
 Although related and often used together, :ref:`esp-stored-templates`
-and :ref:`merge-data` are actually independent features.
+and :ref:`merge data <merge-data>` are actually independent features.
 For example, some ESPs will let you use merge field syntax
 directly in your :class:`~django.core.mail.EmailMessage`
 body, so you can do customized batch sending without needing
@@ -113,28 +116,33 @@ To use batch sending with Anymail (for ESPs that support it):
   in your message. This could be in an :ref:`ESP stored template <esp-stored-templates>`
   referenced by :attr:`~AnymailMessage.template_id`,
   or with some ESPs you can use merge fields directly in your
-  :class:`~django.core.mail.EmailMessage` (meaning the message body itself
-  is treated as the template).
+  :class:`~django.core.mail.EmailMessage` (meaning the message itself
+  is treated as an on-the-fly template).
 
-* Set the message's :attr:`~AnymailMessage.template_data` attribute to define merge
-  data values for each recipient, and optionally set :attr:`~AnymailMessage.template_global_data`
+* Set the message's :attr:`~AnymailMessage.merge_data` attribute to define merge field
+  substitutions for each recipient, and optionally set :attr:`~AnymailMessage.merge_global_data`
   to defaults or values to use for all recipients.
 
 * Specify all of the recipients for the batch in the message's `to` list.
+
+  .. caution::
+
+      It's critical to set the :attr:`~AnymailMessage.merge_data` attribute:
+      this is how Anymail recognizes the message as a batch send.
+
+      When you provide merge_data, Anymail will tell the ESP to send an individual customized
+      message to each "to" address. Without it, you may get a single message to everyone,
+      exposing all of the email addresses to all recipients.
+      (If you don't have any per-recipient customizations, but still want individual messages,
+      just set merge_data to an empty dict.)
 
 The exact syntax for merge fields varies by ESP. It might be something like
 `*|NAME|*` or `-name-` or `<%name%>`. (Check the notes for
 :ref:`your ESP <supported-esps>`, and remember you'll need to change
 the template if you later switch ESPs.)
 
-It's critical to set the :attr:`~AnymailMessage.template_data` attribute:
-this is how Anymail recognizes the message as a batch send. When you provide
-template_data, Anymail will tell the ESP to send an individual customized
-message to each "to" address, separately. Without it, you may get a single message
-with one big "to" field that makes all the addresses visible to every recipient.
 
-
-.. attribute:: AnymailMessage.template_data
+.. attribute:: AnymailMessage.merge_data
 
     A `dict` of *per-recipient* template substitution/merge data. Each key in the
     dict is a recipient email address, and its value is a `dict` of merge field
@@ -142,21 +150,25 @@ with one big "to" field that makes all the addresses visible to every recipient.
 
     .. code-block:: python
 
-        message.template_data = {
+        message.merge_data = {
             'wile@example.com': {'NAME': "Wile E.",
                                  'OFFER': "15% off anvils"},
             'rr@example.com':   {'NAME': "Mr. Runner",
                                  'OFFER': "instant tunnel paint"},
         }
 
-.. attribute:: AnymailMessage.template_global_data
+    When `merge_data` is set, Anymail will use the ESP's batch sending option,
+    so that each `to` recipient gets an individual message (and doesn't see the
+    other emails on the `to` list).
+
+.. attribute:: AnymailMessage.merge_global_data
 
     A `dict` of template substitution/merge data to use for *all* recipients.
     Keys are merge field names in your message template:
 
     .. code-block:: python
 
-        message.template_global_data = {
+        message.merge_global_data = {
             'PARTNER': "Acme, Inc.",
             'OFFER': "5% off any Acme product",  # a default OFFER
         }
@@ -169,10 +181,10 @@ Like all :ref:`anymail-send-features`, you can use these extended template and
 merge attributes with any :class:`~django.core.mail.EmailMessage` or subclass object.
 (It doesn't have to be an :class:`AnymailMessage`.)
 
-Tip: you can add :attr:`~!AnymailMessage.template_global_data` to your
-global Anymail :ref:`send defaults <send-defaults>` to supply merge variables
+Tip: you can add :attr:`~!AnymailMessage.merge_global_data` to your
+global Anymail :ref:`send defaults <send-defaults>` to supply merge data
 available to all batch sends (e.g, site name, contact info). The global
-defaults will be merged with any per-message :attr:`~!AnymailMessage.template_global_data`.
+defaults will be merged with any per-message :attr:`~!AnymailMessage.merge_global_data`.
 
 
 .. _formatting-merge-data:
@@ -191,14 +203,14 @@ for use as merge data:
     ship_date = date(2015, 11, 18)
 
     # Won't work -- you'll get "not JSON serializable" errors at send time:
-    message.template_global_data = {
+    message.merge_global_data = {
         'PRODUCT': product,
         'TOTAL_COST': total_cost,
         'SHIP_DATE': ship_date
     }
 
     # Do something this instead:
-    message.template_global_data = {
+    message.merge_global_data = {
         'PRODUCT': product.name,  # assuming name is a CharField
         'TOTAL_COST': "%.2f" % total_cost,
         'SHIP_DATE': ship_date.strftime('%B %d, %Y')  # US-style "March 15, 2015"
@@ -207,7 +219,7 @@ for use as merge data:
 These are just examples. You'll need to determine the best way to format
 your merge data as strings.
 
-Although floats are usually allowed in merge vars, you'll generally want to format them
+Although floats are usually allowed in merge data, you'll generally want to format them
 into strings yourself to avoid surprises with floating-point precision.
 
 Anymail will raise :exc:`~anymail.exceptions.AnymailSerializationError` if you attempt
@@ -222,21 +234,21 @@ which makes them inherently non-portable.
 
 Anymail only exposes the stored template capabilities that your ESP
 already offers, and then simplifies providing merge data in a portable way.
-It won't translate between different ESPs' template languages, and it
+It won't translate between different ESP template syntaxes, and it
 can't do a batch send if your ESP doesn't support it.
 
 There are two common cases where ESP template
 and merge features are particularly useful with Anymail:
 
-* The people who develop and maintain your transactional
+* When the people who develop and maintain your transactional
   email templates are different from the people who maintain
   your Django page templates. (For example, you use a single
   ESP for both marketing and transactional email, and your
   marketing team manages all the ESP email templates.)
 
-* You need to use your ESP's batch-sending capabilities
-  for performance reasons, because you want a single API call
-  to trigger individualized messages to hundreds or thousands of recipients.
+* When you want to use your ESP's batch-sending capabilities
+  for performance reasons, where a single API call can
+  trigger individualized messages to hundreds or thousands of recipients.
   (For example, sending a daily batch of shipping notifications.)
 
 If neither of these cases apply, you may find that

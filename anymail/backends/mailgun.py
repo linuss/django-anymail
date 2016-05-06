@@ -58,8 +58,8 @@ class MailgunPayload(RequestsPayload):
         self.all_recipients = []  # used for backend.parse_recipient_status
 
         # late-binding of recipient-variables:
-        self.template_data = None
-        self.template_global_data = None
+        self.merge_data = None
+        self.merge_global_data = None
         self.to_emails = []
 
         super(MailgunPayload, self).__init__(message, defaults, backend, auth=auth, *args, **kwargs)
@@ -77,28 +77,28 @@ class MailgunPayload(RequestsPayload):
         return self.data
 
     def populate_recipient_variables(self):
-        """Populate Mailgun recipient-variables header from template data"""
-        template_data = self.template_data
+        """Populate Mailgun recipient-variables header from merge data"""
+        merge_data = self.merge_data
 
-        if self.template_global_data is not None:
+        if self.merge_global_data is not None:
             # Mailgun doesn't support global variables.
             # We emulate them by populating recipient-variables for all recipients.
-            if template_data is not None:
-                template_data = template_data.copy()  # don't modify the original, which doesn't belong to us
+            if merge_data is not None:
+                merge_data = merge_data.copy()  # don't modify the original, which doesn't belong to us
             else:
-                template_data = {}
+                merge_data = {}
             for email in self.to_emails:
                 try:
-                    recipient_data = template_data[email]
+                    recipient_data = merge_data[email]
                 except KeyError:
-                    template_data[email] = self.template_global_data
+                    merge_data[email] = self.merge_global_data
                 else:
                     # Merge globals (recipient_data wins in conflict)
-                    template_data[email] = self.template_global_data.copy()
-                    template_data[email].update(recipient_data)
+                    merge_data[email] = self.merge_global_data.copy()
+                    merge_data[email].update(recipient_data)
 
-        if template_data is not None:
-            self.data['recipient-variables'] = self.serialize_json(template_data)
+        if merge_data is not None:
+            self.data['recipient-variables'] = self.serialize_json(merge_data)
 
     #
     # Payload construction
@@ -184,13 +184,13 @@ class MailgunPayload(RequestsPayload):
     # template_id: Mailgun doesn't offer stored templates.
     # (The message body and other fields *are* the template content.)
 
-    def set_template_data(self, template_data):
+    def set_merge_data(self, merge_data):
         # Processed at serialization time (to allow merging global data)
-        self.template_data = template_data
+        self.merge_data = merge_data
 
-    def set_template_global_data(self, template_global_data):
+    def set_merge_global_data(self, merge_global_data):
         # Processed at serialization time (to allow merging global data)
-        self.template_global_data = template_global_data
+        self.merge_global_data = merge_global_data
 
     def set_esp_extra(self, extra):
         self.data.update(extra)

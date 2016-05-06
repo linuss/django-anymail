@@ -192,10 +192,10 @@ class PostmarkPayload(RequestsPayload):
     def set_template_id(self, template_id):
         self.data["TemplateId"] = template_id
 
-    # template_data: Postmark doesn't support per-recipient substitutions
+    # merge_data: Postmark doesn't support per-recipient substitutions
 
-    def set_template_global_data(self, template_global_data):
-        self.data["TemplateModel"] = template_global_data
+    def set_merge_global_data(self, merge_global_data):
+        self.data["TemplateModel"] = merge_global_data
 
     def set_esp_extra(self, extra):
         self.data.update(extra)

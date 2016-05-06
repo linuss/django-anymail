@@ -39,8 +39,8 @@ Email Service Provider                        |Mailgun|   |Mandrill|  |Postmark|
 .. rubric:: :ref:`templates-and-merge`
 --------------------------------------------------------------------------------------------
 :attr:`~AnymailMessage.template_id`           No          Yes         Yes         Yes
-:attr:`~AnymailMessage.template_data`         Yes         Yes         No          Yes
-:attr:`~AnymailMessage.template_global_data`  (emulated)  Yes         Yes         Yes
+:attr:`~AnymailMessage.merge_data`            Yes         Yes         No          Yes
+:attr:`~AnymailMessage.merge_global_data`     (emulated)  Yes         Yes         Yes
 
 .. rubric:: :ref:`Status <esp-send-status>` and :ref:`event tracking <event-tracking>`
 --------------------------------------------------------------------------------------------

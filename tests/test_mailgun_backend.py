@@ -331,14 +331,14 @@ class MailgunBackendAnymailFeatureTests(MailgunBackendMockAPITestCase):
 
     # template_id: Mailgun doesn't support stored templates
 
-    def test_template_data(self):
+    def test_merge_data(self):
         self.message.to = ['alice@example.com', 'Bob <bob@example.com>']
         self.message.body = "Hi %recipient.name%. Welcome to %recipient.group% at %recipient.site%."
-        self.message.template_data = {
+        self.message.merge_data = {
             'alice@example.com': {'name': "Alice", 'group': "Developers"},
             'bob@example.com': {'name': "Bob"},  # and leave group undefined
         }
-        self.message.template_global_data = {
+        self.message.merge_global_data = {
             'group': "Users",  # default
             'site': "ExampleCo",
         }
@@ -349,17 +349,17 @@ class MailgunBackendAnymailFeatureTests(MailgunBackendMockAPITestCase):
             'bob@example.com': {'name': "Bob", 'group': "Users", 'site': "ExampleCo"},
         })
         # Make sure we didn't modify original dicts on message:
-        self.assertEqual(self.message.template_data, {
+        self.assertEqual(self.message.merge_data, {
             'alice@example.com': {'name': "Alice", 'group': "Developers"},
             'bob@example.com': {'name': "Bob"},
         })
-        self.assertEqual(self.message.template_global_data, {'group': "Users", 'site': "ExampleCo"})
+        self.assertEqual(self.message.merge_global_data, {'group': "Users", 'site': "ExampleCo"})
 
-    def test_only_template_global_data(self):
-        # Make sure template_global_data distributed to recipient-variables
-        # even when template_data not set
+    def test_only_merge_global_data(self):
+        # Make sure merge_global_data distributed to recipient-variables
+        # even when merge_data not set
         self.message.to = ['alice@example.com', 'Bob <bob@example.com>']
-        self.message.template_global_data = {'test': "value"}
+        self.message.merge_global_data = {'test': "value"}
         self.message.send()
         data = self.get_api_call_data()
         self.assertJSONEqual(data['recipient-variables'], {
