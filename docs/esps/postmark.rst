@@ -115,6 +115,52 @@ see :ref:`unsupported-features`.
   Postmark does not support :attr:`~anymail.message.AnymailMessage.send_at`.
 
 
+.. _poastmark-templates:
+
+Batch sending/merge and ESP templates
+-------------------------------------
+
+Postmark supports :ref:`ESP stored templates <esp-stored-templates>`
+populated with global merge data for all recipients, but does not
+offer :ref:`batch sending <batch-send>` with per-recipient merge data.
+Anymail's :attr:`~anymail.message.AnymailMessage.template_data`
+message attribute is not supported with the Postmark backend.
+
+To use a Postmark template, set the message's
+:attr:`~anymail.message.AnymailMessage.template_id` to the numeric
+Postmark "TemplateID" and supply the "TemplateModel" using
+the :attr:`~anymail.message.AnymailMessage.template_global_data`
+message attribute:
+
+  .. code-block:: python
+
+      message = EmailMessage(
+          ...
+          subject=None,  # use template subject
+          to=["alice@example.com"]  # single recipient...
+          # ...multiple to emails would all get the same message
+          # (and would all see each other's emails in the "to" header)
+      )
+      message.template_id = 80801  # use this Postmark template
+      message.template_global_data = {
+          'name': "Alice",
+          'order_no': "12345",
+          'ship_date': "May 15",
+          'items': [
+              {'product': "Widget", 'price': "9.99"},
+              {'product': "Gadget", 'price': "17.99"},
+          ],
+      }
+
+Set the EmailMessage's subject to `None` to use the subject from
+your Postmark template, or supply a subject with the message to override
+the template value.
+
+See this `Postmark blog post on templates`_ for more information.
+
+.. _Postmark blog post on templates:
+    https://postmarkapp.com/blog/special-delivery-postmark-templates
+
 
 .. _postmark-webhooks:
 

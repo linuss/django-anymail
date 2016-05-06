@@ -105,6 +105,47 @@ values directly to Mailgun. You can use any of the (non-file) parameters listed 
 .. _Mailgun sending docs: https://documentation.mailgun.com/api-sending.html#sending
 
 
+.. _mailgun-templates:
+
+Batch sending/merge and ESP templates
+-------------------------------------
+
+Mailgun does not offer :ref:`ESP stored templates <esp-stored-templates>`,
+so Anymail's :attr:`~anymail.message.AnymailMessage.template_id` message
+attribute is not supported with the Mailgun backend.
+
+Mailgun *does* support :ref:`batch sending <batch-send>` with per-recipient
+merge data. You can refer to Mailgun "recipient variables" in your
+message subject and body, and supply the values with Anymail's
+normalized :attr:`~anymail.message.AnymailMessage.template_data`
+and :attr:`~anymail.message.AnymailMessage.template_global_data`
+message attributes:
+
+  .. code-block:: python
+
+      message = EmailMessage(
+          ...
+          subject="Your order %recipient.order_no% has shipped",
+          body="""Hi %recipient.name%,
+                  We shipped your order %recipient.order_no%
+                  on %recipient.ship_date%.""",
+          to=["alice@example.com", "Bob <bob@example.com>"]
+      )
+      # (you'd probably also set a similar html body with %recipient.___% variables)
+      message.template_data = {
+          'alice@example.com': {'name': "Alice", 'order_no': "12345"},
+          'bob@example.com': {'name': "Bob", 'order_no': "54321"},
+      }
+      message.template_global_data = {
+          'ship_date': "May 15"  # Anymail maps globals to all recipients
+      }
+
+See the `Mailgun batch sending`_ docs for more information.
+
+.. _Mailgun batch sending:
+    https://documentation.mailgun.com/user_manual.html#batch-sending
+
+
 .. _mailgun-webhooks:
 
 Status tracking webhooks

@@ -3,7 +3,7 @@
 Mandrill
 ========
 
-Anymail integrates with the `Mandrill <http://mandrill.com/>`_
+Anymail integrates with the `Mandrill <http://mandrill.com/>`__
 transactional email service from MailChimp.
 
 .. note:: **Limited Support for Mandrill**
@@ -99,6 +99,62 @@ esp_extra support
 
 Anymail's Mandrill backend does not yet implement the
 :attr:`~anymail.message.AnymailMessage.esp_extra` feature.
+
+
+.. _mandrill-templates:
+
+Batch sending/merge and ESP templates
+-------------------------------------
+
+Mandrill offers both :ref:`ESP stored templates <esp-stored-templates>`
+and :ref:`batch sending <batch-send>` with per-recipient merge data.
+
+You can use a Mandrill stored template by setting a message's
+:attr:`~anymail.message.AnymailMessage.template_id` to the
+template's name.
+
+Alternatively, you can use MailChimp or Handlebars syntax to
+refer to merge fields directly in your message's subject and body.
+
+In either case, supply the merge data values with Anymail's
+normalized :attr:`~anymail.message.AnymailMessage.template_data`
+and :attr:`~anymail.message.AnymailMessage.template_global_data`
+message attributes.
+
+  .. code-block:: python
+
+      # This example defines the template inline, using Mandrill's
+      # default MailChimp merge *|variable|* syntax.
+      # You could use a stored template, instead, with:
+      #   message.template_id = "template name"
+      message = EmailMessage(
+          ...
+          subject="Your order *|order_no|* has shipped",
+          body="""Hi *|name|*,
+                  We shipped your order *|order_no|*
+                  on *|ship_date|*.""",
+          to=["alice@example.com", "Bob <bob@example.com>"]
+      )
+      # (you'd probably also set a similar html body with merge variables)
+      message.template_data = {
+          'alice@example.com': {'name': "Alice", 'order_no': "12345"},
+          'bob@example.com': {'name': "Bob", 'order_no': "54321"},
+      }
+      message.template_global_data = {
+          'ship_date': "May 15",
+      }
+
+When you supply per-recipient :attr:`~anymail.message.AnymailMessage.template_data`,
+Anymail automatically forces Mandrill's `preserve_recipients` option to false,
+so that each person in the message's "to" list sees only their own email address.
+
+To use the subject or from address defined with a Mandrill template, set the message's
+`subject` or `from_email` attribute to `None`.
+
+See the `Mandrill's template docs`_ for more information.
+
+.. _Mandrill's template docs:
+    https://mandrill.zendesk.com/hc/en-us/articles/205582507-Getting-Started-with-Templates
 
 
 .. _mandrill-webhooks:
@@ -198,7 +254,8 @@ Changes to EmailMessage attributes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``message.send_at``
-  If you are using an aware datetime for :attr:`send_at`,
+  If you are using an aware datetime for
+  :attr:`~anymail.message.AnymailMessage.send_at`,
   it will keep working unchanged with Anymail.
 
   If you are using a date (without a time), or a naive datetime,
@@ -211,7 +268,8 @@ Changes to EmailMessage attributes
 
 ``message.mandrill_response``
   Anymail normalizes ESP responses, so you don't have to be familiar
-  with the format of Mandrill's JSON. See :attr:`anymail_status`.
+  with the format of Mandrill's JSON.
+  See :attr:`~anymail.message.AnymailMessage.anymail_status`.
 
   The *raw* ESP response is attached to a sent message as
   ``anymail_status.esp_response``, so the direct replacement
@@ -221,14 +279,16 @@ Changes to EmailMessage attributes
 
         mandrill_response = message.anymail_status.esp_response.json()
 
-**Templates and merge variables**
-  Coming to Anymail soon.
+``message.template_name``
+  Anymail renames this to :attr:`~anymail.message.AnymailMessage.template_id`.
 
-  However, no other ESPs support MailChimp's templating language, so
-  you'll need to rewrite your templates as you switch ESPs.
+``message.merge_vars`` and ``message.global_merge_vars``
+  Anymail renames these to :attr:`~anymail.message.AnymailMessage.template_data`
+  and :attr:`~anymail.message.AnymailMessage.template_global_data`, respectively.
 
-  Consider converting to :ref:`Django templates <django-templates>`
-  instead, as these can be used with any email backend.
+``message.use_template_from`` and ``message.use_template_subject``
+  With Anymail, set ``message.from_email = None`` or ``message.subject = None``
+  to use the values from the stored template.
 
 **Other Mandrill-specific attributes**
   Are currently still supported by Anymail's Mandrill backend,

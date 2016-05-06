@@ -2,8 +2,8 @@
 
 .. _templates-and-merge:
 
-Mail merge and ESP templates
-============================
+Batch sending/merge and ESP templates
+=====================================
 
 If your ESP offers templates and batch-sending/merge capabilities,
 Anymail can simplify using them in a portable way.
@@ -168,6 +168,11 @@ See :ref:`formatting-merge-data` for more information.
 Like all :ref:`anymail-send-features`, you can use these extended template and
 merge attributes with any :class:`~django.core.mail.EmailMessage` or subclass object.
 (It doesn't have to be an :class:`AnymailMessage`.)
+
+Tip: you can add :attr:`~!AnymailMessage.template_global_data` to your
+global Anymail :ref:`send defaults <send-defaults>` to supply merge variables
+available to all batch sends (e.g, site name, contact info). The global
+defaults will be merged with any per-message :attr:`~!AnymailMessage.template_global_data`.
 
 
 .. _formatting-merge-data:

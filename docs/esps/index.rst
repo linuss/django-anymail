@@ -25,22 +25,28 @@ The table below summarizes the Anymail features supported for each ESP.
 
 .. currentmodule:: anymail.message
 
-===========================================   =========  ==========  ==========  ==========
-Email Service Provider                        |Mailgun|  |Mandrill|  |Postmark|  |SendGrid|
-===========================================   =========  ==========  ==========  ==========
+============================================  ==========  ==========  ==========  ==========
+Email Service Provider                        |Mailgun|   |Mandrill|  |Postmark|  |SendGrid|
+============================================  ==========  ==========  ==========  ==========
 .. rubric:: :ref:`Anymail send options <anymail-send-options>`
--------------------------------------------------------------------------------------------
-:attr:`~AnymailMessage.metadata`              Yes        Yes         No          Yes
-:attr:`~AnymailMessage.send_at`               Yes        Yes         No          Yes
-:attr:`~AnymailMessage.tags`                  Yes        Yes         Max 1 tag   Yes
-:attr:`~AnymailMessage.track_clicks`          Yes        Yes         No          Yes
-:attr:`~AnymailMessage.track_opens`           Yes        Yes         Yes         Yes
+--------------------------------------------------------------------------------------------
+:attr:`~AnymailMessage.metadata`              Yes         Yes         No          Yes
+:attr:`~AnymailMessage.send_at`               Yes         Yes         No          Yes
+:attr:`~AnymailMessage.tags`                  Yes         Yes         Max 1 tag   Yes
+:attr:`~AnymailMessage.track_clicks`          Yes         Yes         No          Yes
+:attr:`~AnymailMessage.track_opens`           Yes         Yes         Yes         Yes
+
+.. rubric:: :ref:`templates-and-merge`
+--------------------------------------------------------------------------------------------
+:attr:`~AnymailMessage.template_id`           No          Yes         Yes         Yes
+:attr:`~AnymailMessage.template_data`         Yes         Yes         No          Yes
+:attr:`~AnymailMessage.template_global_data`  (emulated)  Yes         Yes         Yes
 
 .. rubric:: :ref:`Status <esp-send-status>` and :ref:`event tracking <event-tracking>`
--------------------------------------------------------------------------------------------
-:attr:`~AnymailMessage.anymail_status`        Yes        Yes         Yes         Yes
-|AnymailTrackingEvent| from webhooks          Yes        Yes         Yes         Yes
-===========================================   =========  ==========  ==========  ==========
+--------------------------------------------------------------------------------------------
+:attr:`~AnymailMessage.anymail_status`        Yes         Yes         Yes         Yes
+|AnymailTrackingEvent| from webhooks          Yes         Yes         Yes         Yes
+============================================  ==========  ==========  ==========  ==========
 
 
 .. .. rubric:: :ref:`inbound`
